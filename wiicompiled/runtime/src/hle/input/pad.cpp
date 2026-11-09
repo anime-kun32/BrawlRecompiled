@@ -5,6 +5,7 @@
 #include "wii_remote_input.h"
 #include "frame_input.h"
 #include "runtime_config.h"
+#include "rumble_tap.h"
 
 #include <algorithm>
 #include <atomic>
@@ -278,9 +279,11 @@ PPC_NATIVE_OVERRIDE(80215D5C, PAD__Recalibrate_HLE, uint32_t, (uint32_t mask), (
 
 extern "C" void PAD__ControlMotor_HLE(int32_t chan, uint32_t command)
 {
+    const uint32_t requested = command;
     if (command == PAD_MOTOR_RUMBLE && !g_rumbleEnabled.load(std::memory_order_relaxed)) {
         command = PAD_MOTOR_STOP;
     }
+    RumbleTap::Emit(RumbleTap::Device::GcPad, static_cast<uint32_t>(chan), requested, command);
     PADControlMotor(chan, command);
 }
 // Brawl (RSBE01): GameCube controllers are its main input.

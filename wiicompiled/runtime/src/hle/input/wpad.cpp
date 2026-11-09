@@ -1,6 +1,7 @@
 #include "frame_input.h"
 #include "hle_stubs.h"
 #include "memory.h"
+#include "rumble_tap.h"
 #include "hle/controller_status_contract.h"
 #include "wii_remote_input.h"
 
@@ -175,8 +176,8 @@ PPC_NATIVE_OVERRIDE(8021A024, WPADProbe_HLE, int32_t, (uint32_t chan, uint32_t t
 
 extern "C" void WPADControlMotor_HLE(uint32_t chan, uint32_t command)
 {
-    (void)chan;
-    (void)command;
+    // The remote's own motor is still not driven; the request is only reported to the rumble tap.
+    RumbleTap::Emit(RumbleTap::Device::Wpad, chan, command, command);
 }
 PPC_NATIVE_OVERRIDE(8021A558, WPADControlMotor_HLE, void, (uint32_t chan, uint32_t command), (chan, command));
 

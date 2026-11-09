@@ -428,6 +428,15 @@ target_include_directories(mkw_nand_settings_tests PRIVATE "${CMAKE_CURRENT_LIST
 target_compile_features(mkw_nand_settings_tests PRIVATE cxx_std_17)
 add_test(NAME mkw_nand_settings_tests COMMAND mkw_nand_settings_tests)
 
+if(NOT WIN32)
+    add_executable(mkw_rumble_tap_tests
+        "${CMAKE_CURRENT_LIST_DIR}/tests/rumble_tap_tests.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/src/rumble_tap.cpp")
+    target_include_directories(mkw_rumble_tap_tests PRIVATE "${CMAKE_CURRENT_LIST_DIR}/include")
+    target_compile_features(mkw_rumble_tap_tests PRIVATE cxx_std_17)
+    add_test(NAME mkw_rumble_tap_tests COMMAND mkw_rumble_tap_tests)
+endif()
+
 add_executable(mkw_sc_serial_tests "${CMAKE_CURRENT_LIST_DIR}/tests/sc_serial_tests.cpp")
 target_include_directories(mkw_sc_serial_tests PRIVATE "${CMAKE_CURRENT_LIST_DIR}/include")
 target_compile_features(mkw_sc_serial_tests PRIVATE cxx_std_17)

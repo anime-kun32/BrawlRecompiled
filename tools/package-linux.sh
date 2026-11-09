@@ -17,7 +17,11 @@ cp "$root/launcher/linux/publish/Brawl Recompiled" "$stage/"
 cp "$build/usa/build/_deps/png-build/libpng16.so.16" "$engine/"   # the one library the game does not build in
 cp -L "$build/sdl-shared/libSDL3.so.0" "$engine/"                 # the launcher's controller list
 cp "$build/usa/build/dsp_coef.bin" "$build/usa/build/cacert.pem" "$root/Play/portable.txt" "$engine/"
-cp -r "$root/Play/wii_bootstrap" "$engine/"
+# Play/wii_bootstrap exists after a Windows build; without one, take the copy the Linux build wrote next to the engine.
+bootstrap=$root/Play/wii_bootstrap
+[[ -d $bootstrap ]] || bootstrap=$build/usa/build/wii_bootstrap
+[[ -d $bootstrap ]] || { echo "missing wii_bootstrap (neither Play/ nor the Linux build has it)" >&2; exit 1; }
+cp -r "$bootstrap" "$engine/"
 cp "$root/tools/cheats-RSBE01.ini" "$engine/default-cheats.ini"   # the starter cheat list (gecko.cpp copies it into UserData)
 mkdir -p "$engine/startup" && cp "$root/launcher/art/smash_ball.png" "$engine/startup/"   # the title card's Smash Ball
 cp "$root/tools/CREDITS.txt" "$stage/CREDITS.txt"

@@ -1,0 +1,55 @@
+name: Linux build (self-hosted Arch)
+
+# Builds and packs the Linux download on your own machine, from your own disc image.
+#
+# - The disc image is read where it lives, on the runner (BRAWL_ISO, set in the runner's .env file, see
+#   tools/ARCH-RUNNER.md). It is never uploaded, and nothing derived from the game is either: the package is left
+#   on the runner (BRAWL_OUT, default ~/brawl-out) and no artifact is uploaded to GitHub.
+# - Triggers are push and manual only. Do not add pull_request: on a public repo that would let anyone's fork run
+#   code on your machine.
+on:
+  workflow_dispatch:
+    inputs:
+      retranslate:
+        description: Translate the game again even if its inputs look unchanged
+        type: boolean
+        default: false
+  push:
+    branches: [master]
+    paths-ignore:
+      - '**.md'
+      - 'screenshots/**'
+
+permissions:
+  contents: read
+
+# One build at a time: they share ~/brawl-linux and the checkout's Disc/ and generated/ folders.
+concurrency:
+  group: linux-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: [self-hosted, linux, x64, arch]   # "arch" is a custom label: register the runner with --labels arch
+    timeout-minutes: 480
+    steps:
+      - name: Check out
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2, bump when you like
+        with:
+          clean: false   # keep the git-ignored Disc/, game/, extras/ and wiicompiled/generated/ between runs
+
+      - name: Self-tests (no disc needed)
+        run: |
+          set -euo pipefail
+          python3 tools/test_extract_iso.py
+          g++ -std=c++17 -Wall -Wextra -Werror -Iwiicompiled/runtime/include \
+            wiicompiled/runtime/tests/rumble_tap_tests.cpp wiicompiled/runtime/src/rumble_tap.cpp \
+            -o "$RUNNER_TEMP/rumble_tap_tests"
+          "$RUNNER_TEMP/rumble_tap_tests"
+          python3 -m py_compile tools/rumble-listener.py
+          for f in tools/ci-build-linux.sh tools/build-linux.sh tools/package-linux.sh; do bash -n "$f"; done
+
+      - name: Translate, compile and package
+        env:
+          FORCE_TRANSLATE: ${{ inputs.retranslate && '1' || '' }}
+        run: bash tools/ci-build-linux.sh

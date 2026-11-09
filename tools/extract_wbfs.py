@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Extract the data partition of a Wii .wbfs into a Dolphin-style folder (sys/, files/).
-Usage: extract_wbfs.py game.wbfs outdir     Needs: pip install cryptography"""
+"""Extract the data partition of a Wii .wbfs or .iso into a Dolphin-style folder (sys/, files/).
+Usage: extract_wbfs.py game.wbfs|game.iso outdir [--only PREFIX]...     Needs: pip install cryptography
+--only keeps just the files under a path prefix (repeatable), e.g. --only sys/ --only files/module/ for a build."""
 import os, struct, sys
 
 COMMON_KEY = bytes.fromhex("EBE42A225E8593E448D9C5457381AAF7")  # retail Wii common key (index 0)
@@ -37,6 +38,29 @@ class Wbfs:
             off += c; n -= c
         return bytes(out)
 
+class Iso:
+    """A raw .iso: the disc's bytes as they are, which is the address space Wbfs rebuilds from its blocks."""
+    def __init__(self, path):
+        self.f = open(path, "rb")
+        self.holes = 0  # reads that ran past the end of a trimmed image
+
+    def read(self, off, n):
+        self.f.seek(off)
+        data = self.f.read(n)
+        if len(data) < n:
+            self.holes += 1
+            data += bytes(n - len(data))
+        return data
+
+def open_disc(path):
+    with open(path, "rb") as f:
+        head = f.read(0x20)
+    if head[:4] == b"WBFS":
+        return Wbfs(path)
+    if head[0x18:0x1C] == bytes.fromhex("5D1C9EA3"):  # the Wii disc magic
+        return Iso(path)
+    raise SystemExit("%s is not a Wii .iso or .wbfs (CISO, RVZ and other compressed images: convert to .iso first)" % path)
+
 class Partition:
     def __init__(self, disc, off):
         self.disc = disc
@@ -58,8 +82,9 @@ class Partition:
             off += c; n -= c
         return bytes(out)
 
-def main(src, dst):
-    disc = Wbfs(src)
+def main(src, dst, only=()):
+    disc = open_disc(src)
+    wanted = lambda rel: not only or any("/".join(rel).startswith(p) for p in only)
     gid = disc.read(0, 6)
     parts = []
     for g in range(4):
@@ -73,6 +98,8 @@ def main(src, dst):
     dol_off, fst_off, fst_sz = (u32(boot, o) << 2 for o in (0x420, 0x424, 0x428))
 
     def put(rel, data_or_range):
+        if not wanted(rel):
+            return None
         path = os.path.join(dst, *rel)
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "wb") as f:
@@ -106,9 +133,11 @@ def main(src, dst):
                 walk(i + 1, b, path + [name(i)]); i = b
             else:
                 h = disc.holes
-                stats["bytes"] += put(["files"] + path + [name(i)], (a << 2, b))
-                stats["files"] += 1
-                if disc.holes != h: stats["holey"].append("/".join(path + [name(i)]))
+                size = put(["files"] + path + [name(i)], (a << 2, b))
+                if size is not None:
+                    stats["bytes"] += size
+                    stats["files"] += 1
+                    if disc.holes != h: stats["holey"].append("/".join(path + [name(i)]))
                 i += 1
     walk(1, n, [])
     print("game", gid.decode(), "| files", stats["files"], "| bytes", stats["bytes"], "| main.dol", dol_sz)
@@ -116,4 +145,10 @@ def main(src, dst):
     for x in stats["holey"][:30]: print("  MISSING", x)
 
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2])
+    import argparse
+    ap = argparse.ArgumentParser(description="Extract a Wii .wbfs or .iso into sys/ and files/.")
+    ap.add_argument("disc")
+    ap.add_argument("outdir")
+    ap.add_argument("--only", action="append", default=[], metavar="PREFIX", help="keep only paths under PREFIX (repeatable)")
+    a = ap.parse_args()
+    main(a.disc, a.outdir, a.only)

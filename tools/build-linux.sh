@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Linux build of Brawl Recompiled. Run on Linux or in WSL, after tools\build-brawl.ps1 has translated the game on
-# Windows: this reuses that output (wiicompiled\generated) and only compiles it with clang.
+# Linux build of Brawl Recompiled. Run on Linux or in WSL, after the game has been translated (tools\build-brawl.ps1 on
+# Windows, or tools/ci-build-linux.sh on Linux): this reuses that output (wiicompiled/generated) and only compiles it with clang.
 #   bash tools/build-linux.sh [--jobs N]
 # Sources are copied to ~/brawl-linux first (WSL compiles far faster off /mnt/c). Output: ~/brawl-linux/usa/build/WiiCompiled
 set -euo pipefail
@@ -30,8 +30,9 @@ echo "copying sources to $work"
 rsync -a --delete "$src/runtime/" "$work/runtime/"
 rsync -a --delete "$root/wiicompiled/aurora-main/" "$work/aurora-main/"
 rsync -a --delete --exclude functions "$src/generated/" "$work/generated/"
-# The translator wrote absolute Windows paths into the shard list and the data blobs' .incbin lines.
-win=$(wslpath -m "$src")
+# The translator wrote absolute paths (Windows ones, when it ran on Windows) into the shard list and the data blobs'
+# .incbin lines. Outside WSL there is no wslpath: the translator ran here, so the paths are $src itself.
+win=$(wslpath -m "$src" 2>/dev/null || printf '%s' "$src")
 grep -rlF "$win" "$work/generated" --include='*.cmake' --include='*.S' --include='*.cpp' --include='*.h' |
     xargs -r sed -i "s|$win|$work|g"
 

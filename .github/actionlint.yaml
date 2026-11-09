@@ -1,0 +1,3 @@
+self-hosted-runner:
+  labels:
+    - arch   # the self-hosted Arch runner, see tools/ARCH-RUNNER.md
