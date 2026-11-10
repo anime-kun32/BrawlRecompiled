@@ -925,7 +925,8 @@ int RunTranslateRecursive(string[] argsTail)
             // rather than retaining every descendant dependency forever.
             var interproceduralGuestAbi = GuestAbiInterproceduralAnalyzer.Analyze(
                 canonicalGuestFunctions,
-                nativeGuestEffects.Contracts);
+                nativeGuestEffects.Contracts,
+                maxThreads);
             var guestAbiContracts = interproceduralGuestAbi.Contracts
                 .ToDictionary(static pair => pair.Key, static pair => pair.Value);
             var recursiveComponents = interproceduralGuestAbi.StronglyConnectedComponents

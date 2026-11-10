@@ -18,7 +18,8 @@ public static class GuestAbiInterproceduralAnalyzer
 {
     public static GuestAbiInterproceduralResult Analyze(
         IReadOnlyDictionary<uint, IrFunction> functions,
-        IReadOnlyDictionary<uint, GuestAbiContract>? externalContracts = null)
+        IReadOnlyDictionary<uint, GuestAbiContract>? externalContracts = null,
+        int maxThreads = 1)
     {
         externalContracts ??= new Dictionary<uint, GuestAbiContract>();
         var addresses = functions.Keys.OrderBy(static address => address).ToArray();
@@ -26,7 +27,10 @@ public static class GuestAbiInterproceduralAnalyzer
         // GuestAbiContractAnalyzer.Analyze is pure and the round's contract snapshot is frozen, so
         // per-function analyses within a round can run on any thread. Determinism comes from
         // applying results serially in ascending-ordinal order, matching the old single-threaded loop.
-        var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount };
+        var parallelOptions = new ParallelOptions
+        {
+            MaxDegreeOfParallelism = Math.Max(1, maxThreads)
+        };
 
         // Resolving the IR by ordinal once keeps the caller-supplied dictionary
         // off every parallel path: only this loop and BuildComponents touch it.
